@@ -15892,6 +15892,12 @@ const dragonsongs_reprise_ultimate_triggerSet = {
 
  // TODO: 7B10 Diffuse Wave Cannon Kyrios being shared if not invulning?
 // TODO: call out who was missing in the Condensed Wave Cannon stack
+// TODO: taking a hello world tower too late (rot debuff timer > tower debuff timer)
+// TODO: breaking patch too early in p3, but especially delta
+// TODO: beyond defense person getting hit by monitor in delta
+// TODO: red/green tether not getting hit by monitor in delta
+// TODO: headmarker tracking so we can track sigma marked/unmarked being hit by 7B72 Hyper Pulse or 7B74 Wave Cannon
+// TODO: sigma tower tracking
 // TODO: we probably could use an oopsy utility library (and Data should be `any` here).
 
 const the_omega_protocol_stackMistake = (type, expected, abilityText) => {
@@ -16084,6 +16090,14 @@ const unknownDescriptionLocale = {
   de: ' (als ???)',
   ko: ' (???)'
 };
+const firstMarker = parseInt('0017', 16);
+const the_omega_protocol_getHeadmarkerId = (data, matches) => {
+  if (data.decOffset === undefined) data.decOffset = parseInt(matches.id, 16) - firstMarker; // The leading zeroes are stripped when converting back to string, so we re-add them here.
+  // Fortunately, we don't have to worry about whether or not this is robust,
+  // since we know all the IDs that will be present in the encounter.
+
+  return (parseInt(matches.id, 16) - data.decOffset).toString(16).toUpperCase().padStart(4, '0');
+};
 const the_omega_protocol_triggerSet = {
   zoneId: zone_id/* default.TheOmegaProtocolUltimate */.Z.TheOmegaProtocolUltimate,
   damageWarn: {
@@ -16101,10 +16115,14 @@ const the_omega_protocol_triggerSet = {
     // Omega-F hot wing during Party Synergy
     'TOP Superliminal Steel 2': '7B3F',
     // Omega-F hot wing during Party Synergy
+    'TOP Superliminal Steel 3': '7B2B',
+    // Omega-F hot wing during Sigma
+    'TOP Superliminal Steel 4': '7B2C',
+    // Omega-F hot wing during Sigma
     'TOP Optimized Blizzard III': '7B2D',
-    // Omega-F cross during Party Synergy
+    // Omega-F cross during Party Synergy / Sigma
     'TOP Optical Laser': '7B21',
-    // Optical Unit eye laser during Party Synergy / p5
+    // Optical Unit eye laser during Party Synergy / Delta
     'TOP Optimized Sagittarius Arrow': '7B33',
     // line aoe during Limitless Synergy
     'TOP Optimized Bladedance 1': '7B36',
@@ -16119,7 +16137,21 @@ const the_omega_protocol_triggerSet = {
     // third ring during p3 transition / p4
     'TOP Wave Repeater 4': '7B52',
     // outer ring during p3 transition / p4
-    'TOP Colossal Blow': '7B4E' // Right/Left Arm Unit big centered circle during p3 transition
+    'TOP Colossal Blow': '7B4E',
+    // Right/Left Arm Unit big centered circle during p3 transition
+    'TOP Rocket Punch Explosion': '7AFA',
+    // small rocket arm circles when done correctly
+    'TOP Hyper Pulse 1': '7B70',
+    // initial spinny arm lasers during Delta
+    'TOP Hyper Pulse 2': '7B71',
+    // ongoing spinny arm lasers during Delta
+    'TOP Swivel Cannon 1': '7B94',
+    // left/right beetle haircut during Delta
+    'TOP Swivel Cannon 2': '7B95',
+    // left/right beetle haircut during Delta
+    'TOP Rear Power Unit Rear Lasers 1': '7B8F',
+    // initial Sigma rotating laser
+    'TOP Rear Power Unit Rear Lasers 2': '7B90' // ongoing Sigma rotating laser
 
   },
   damageFail: {
@@ -16140,7 +16172,9 @@ const the_omega_protocol_triggerSet = {
     // spread during p3 transition
     'TOP Wave Cannon Protean': '7B7E',
     // p4 initial protean laser
-    'TOP Oversampled Wave Cannon': '7B6D' // p3 monitors
+    'TOP Oversampled Wave Cannon': '7B6D',
+    // p3/p5 monitors
+    'TOP Sigma Wave Cannon': '7B74' // headmarker line protean at the start of Sigma
 
   },
   shareFail: {
@@ -16154,7 +16188,15 @@ const the_omega_protocol_triggerSet = {
     // p5 initial tankbuster
     'TOP Solar Ray 4': '7B01',
     // p5 second tankbuster
-    'TOP Beyond Defense': '7B28' // spread with knockback during Limitless Synergy
+    'TOP Beyond Defense': '7B28',
+    // spread with knockback during Limitless Synergy
+    'TOP Hello Distant World Initial': '8110',
+    // the initial large hit on distant world
+    'TOP Hello Distant World Jump': '8111',
+    // the followup two small jumps from distant world
+    'TOP Hello Near World Initial': '7B89',
+    // the initial large hit on near world
+    'TOP Hello Near World Jump': '7B8A' // the followup two small jumps from near world
 
   },
   soloWarn: {
@@ -16223,6 +16265,13 @@ const the_omega_protocol_triggerSet = {
           break;
       }
     }
+  }, {
+    id: 'TOP Headmarker Tracker',
+    type: 'HeadMarker',
+    netRegex: netregexes/* default.headMarker */.ZP.headMarker(),
+    condition: data => data.decOffset === undefined,
+    // Unconditionally set the first headmarker here so that future triggers are conditional.
+    run: (data, matches) => the_omega_protocol_getHeadmarkerId(data, matches)
   }, {
     id: 'TOP In Line Debuff Collector',
     type: 'GainsEffect',
@@ -16405,9 +16454,9 @@ const the_omega_protocol_triggerSet = {
     }
   }, {
     id: 'TOP Beyond Defense Cleanup',
-    type: 'StartsUsing',
-    netRegex: netregexes/* default.startsUsing */.ZP.startsUsing({
-      id: '7B28'
+    type: 'Ability',
+    netRegex: netregexes/* default.ability */.ZP.ability({
+      id: '7B27'
     }),
     run: data => data.beyondDefense = []
   }, {
@@ -16892,7 +16941,8 @@ const the_omega_protocol_triggerSet = {
           // no reportId/blame here as this is usually somebody else's fault
           text: {
             en: `Took monitor x${count}`,
-            de: `Monitor x${count} genommen`
+            de: `Monitor x${count} genommen`,
+            ko: `모니터 ${count}개 맞음`
           }
         });
       } // It is possible in rare cases for there to be more than 8 hits.
@@ -16906,7 +16956,8 @@ const the_omega_protocol_triggerSet = {
           type: 'warn',
           text: {
             en: `Total monitors: x${numMonitors}`,
-            de: `Monitore insgesamt: x${numMonitors}`
+            de: `Monitore insgesamt: x${numMonitors}`,
+            ko: `총 모니터 수: x${numMonitors}`
           }
         });
       }
@@ -16923,7 +16974,8 @@ const the_omega_protocol_triggerSet = {
     mistake: the_omega_protocol_stackMistake('warn', 1, {
       // Rename this for clarity.
       en: 'Wave Cannon Protean',
-      de: 'Wellenkanone Himmelsrichtung'
+      de: 'Wellenkanone Himmelsrichtung',
+      ko: '산개 파동포'
     })
   }, {
     id: 'TOP Wave Cannon Protean Two',
@@ -16940,7 +16992,8 @@ const the_omega_protocol_triggerSet = {
         triggerType: 'Damage',
         text: {
           en: 'Wave Cannon Repeat Protean',
-          de: 'Wellenkanone wiederholte Himmelsrichtung'
+          de: 'Wellenkanone wiederholte Himmelsrichtung',
+          ko: '산개 파동포 장판'
         }
       };
     }
@@ -16979,7 +17032,8 @@ const the_omega_protocol_triggerSet = {
           name: player,
           text: {
             en: `Missed Wave Cannon Protean`,
-            de: `Verfehlte Wellenkanone Himmelsrichtung`
+            de: `Verfehlte Wellenkanone Himmelsrichtung`,
+            ko: `산개 파동포 놓침`
           }
         });
       } // Track anybody double tapped with two "single target" proteans.
@@ -17004,7 +17058,8 @@ const the_omega_protocol_triggerSet = {
           name: player,
           text: {
             en: `Wave Cannon Protean x${count}`,
-            de: `Wellenkanone Himmelsrichtung x${count}`
+            de: `Wellenkanone Himmelsrichtung x${count}`,
+            ko: `산개 파동포 x${count}`
           }
         });
       }
@@ -17045,7 +17100,8 @@ const the_omega_protocol_triggerSet = {
           reportId: data.blameId?.[player],
           text: {
             en: `Missed Wave Cannon Stack`,
-            de: `Verfehltes Wellenkanone Sammeln`
+            de: `Verfehltes Wellenkanone Sammeln`,
+            ko: `쉐어 파동포 놓침`
           }
         });
       }
@@ -17065,7 +17121,8 @@ const the_omega_protocol_triggerSet = {
           reportId: data.blameId?.[player],
           text: {
             en: `Wave Cannon Stack x${count}`,
-            de: `Wellenkanone Sammeln x${count}`
+            de: `Wellenkanone Sammeln x${count}`,
+            ko: `쉐어 파동포 x${count}`
           }
         });
       }
